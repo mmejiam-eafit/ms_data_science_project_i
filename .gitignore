@@ -1,1 +1,4 @@
 **/eigenfaces/notebooks/.ipynb_checkpoints/*
+.idea/
+eigenfaces/utils/__pycache__/
+
