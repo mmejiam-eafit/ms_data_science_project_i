@@ -11,37 +11,39 @@ DATASET_FACES95 = DATASET_ROOT + "/faces95"
 DATASET_FACES96 = DATASET_ROOT + "/faces96"
 DATASET_GRIMACE = DATASET_ROOT + "/grimace"
 
-def readFaces94MaleFaces():
-    return readImagesFromDataset(DATASET_FACES94_MALE)
+def readFaces94MaleFaces(gray=False):
+    return readImagesFromDataset(DATASET_FACES94_MALE, gray)
 
-def readFaces94FemaleFaces():
-    return readImagesFromDataset(DATASET_FACES94_FEMALE)
+def readFaces94FemaleFaces(gray=False):
+    return readImagesFromDataset(DATASET_FACES94_FEMALE, gray)
 
-def readFaces94MaleStaffFaces():
-    return readImagesFromDataset(DATASET_FACES94_MALESTAFF)
+def readFaces94MaleStaffFaces(gray=False):
+    return readImagesFromDataset(DATASET_FACES94_MALESTAFF, gray)
 
-def readFaces94AllFaces():
-    npMaleFaces = readFaces94MaleFaces()
-    npFemaleFaces = readFaces94FemaleFaces()
-    npMaleStaffFaces = readFaces94MaleStaffFaces()
+def readFaces94AllFaces(gray=False):
+    npMaleFaces = readFaces94MaleFaces(gray)
+    npFemaleFaces = readFaces94FemaleFaces(gray)
+    npMaleStaffFaces = readFaces94MaleStaffFaces(gray)
     
     return np.concatenate((npMaleFaces, npMaleStaffFaces, npFemaleFaces))
 
-def readImagesFromDataset(datasetDir):
+def readImagesFromDataset(datasetDir, gray=False):
     images = []
     directories = glob.glob(datasetDir + "/*")
     for directory in directories:
-        images += readImagesFromDirectory(directory)
+        images += readImagesFromDirectory(directory, gray)
     
     return np.array(images, dtype="float32")
 
-def readImagesFromDirectory(directory):
+def readImagesFromDirectory(directory, gray=False):
     images = []
     imageNames = glob.glob(directory + "/*.jpg")
     for imageName in imageNames:
         image = cv2.imread(imageName)
-        # Convert to gray in order to reduce the dimensionality of the  
-        imageGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        images.append(imageGray)
+        # Convert to gray in order to reduce the dimensionality of the data set
+        # only if stated by the parameter for gray
+        images.append(
+                cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if gray else image
+        )
         
     return images
