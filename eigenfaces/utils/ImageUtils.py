@@ -10,6 +10,7 @@ DATASET_FACES94_MALESTAFF = DATASET_FACES94 + "/malestaff"
 DATASET_FACES95 = DATASET_ROOT + "/faces95"
 DATASET_FACES96 = DATASET_ROOT + "/faces96"
 DATASET_GRIMACE = DATASET_ROOT + "/grimace"
+DATASET_LANDSCAPE = DATASET_ROOT + "/naturalLandscapes"
 
 def readFaces94MaleFaces(gray=False):
     return readImagesFromDataset(DATASET_FACES94_MALE, gray)
@@ -47,3 +48,29 @@ def readImagesFromDirectory(directory, gray=False):
         )
         
     return images
+
+
+
+## ======= Read another not composed dataset
+
+def readImagesothers(directory, gray=False):
+    images = []
+    imageNames = glob.glob(directory + "/*.jpg")
+    for imageName in imageNames:
+        image = cv2.imread(imageName)
+        image = cv2.resize(image, (180,200))
+        # Convert to gray in order to reduce the dimensionality of the data set
+        # only if stated by the parameter for gray
+        images.append(
+                cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if gray else image
+        )
+        
+    return np.array(images, dtype="float32")
+
+
+## ======= Read images of natural landscape
+
+def readLandsCapeImage(gray=False):
+    return readImagesothers(DATASET_LANDSCAPE, gray)
+
+
