@@ -1,6 +1,8 @@
 import cv2 # Needs the package OpenCV to be installed. Check Anaconda Environments and Packages.
 import glob
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -36,11 +38,11 @@ def readImagesFromDataset(datasetDir, gray=False):
     
     return np.array(images, dtype="float32")
 
-def readImagesFromDirectory(directory, gray=False):
+def readImagesFromDirectory(directory, gray=False, size=(180, 200)):
     images = []
     imageNames = glob.glob(directory + "/*.jpg")
     for imageName in imageNames:
-        image = cv2.imread(imageName)
+        image = cv2.resize(cv2.imread(imageName), size)
         # Convert to gray in order to reduce the dimensionality of the data set
         # only if stated by the parameter for gray
         images.append(
@@ -49,28 +51,60 @@ def readImagesFromDirectory(directory, gray=False):
         
     return images
 
-
-
-## ======= Read another not composed dataset
-
-def readImagesothers(directory, gray=False):
-    images = []
-    imageNames = glob.glob(directory + "/*.jpg")
-    for imageName in imageNames:
-        image = cv2.imread(imageName)
-        image = cv2.resize(image, (180,200))
-        # Convert to gray in order to reduce the dimensionality of the data set
-        # only if stated by the parameter for gray
-        images.append(
-                cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if gray else image
-        )
-        
-    return np.array(images, dtype="float32")
-
-
 ## ======= Read images of natural landscape
 
 def readLandsCapeImage(gray=False):
-    return readImagesothers(DATASET_LANDSCAPE, gray)
+    return readImagesFromDirectory(DATASET_LANDSCAPE, gray)
 
 
+## ======= Calculate distance from image
+def getNormsAndDistanceInfoFromBaseImage(
+        base_image, 
+        array_images, 
+        distances=np.append(np.arange(1, 4), np.inf), 
+        outlier_percentage=0.05
+    ):
+    return_dict = {}
+    
+    distances_norms = []
+    Np, height, width = array_images.shape
+    for i in distances:
+        distance = np.linalg.norm(np.subtract(base_image, array_images).reshape(Np, height*width), ord=i, axis=1)
+        distances_norms.append(distance)
+    return_dict["norms"] = pd.DataFrame(np.array(distances_norms).T, columns=["Norm" + str(i) for i in distances])
+    outliers_indices = []
+
+    for column in return_dict["norms"].columns:
+        outliers = np.argwhere(
+                return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage)
+        )
+        outliers_indices.append(outliers)
+    outliers_arr = np.array(outliers_indices)
+    print(outliers_arr.shape)
+
+    return_dict["outliers_df"] = pd.DataFrame(
+            outliers_arr.reshape(outliers_arr.shape[-3], outliers_arr.shape[-1]*outliers_arr.shape[-2]), 
+            columns=["outliers" + i for i in return_dict["norms"].columns]
+    )
+    
+    return return_dict
+
+def visualizeOutlierInfo(distance_dict):
+    for column in distance_dict['norms'].columns:
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111)
+        
+        ax1.scatter(
+            np.arange(distance_dict['norms'][column].shape[0]),
+            distance_dict['norms'][column],
+            s=10, c='b', marker="s", label=column + ' Distances'
+        )
+        
+        ax1.scatter(
+            distance_dict["outliers_df"]["outliers" + column],
+            distance_dict["norms"][column][distance_dict["outliers_df"]["outliers" + column]],
+            s=10, c='r', marker="o", label=column + ' Outliers'
+        )
+        
+        plt.legend(loc='upper left');
+        plt.show()
