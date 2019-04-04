@@ -82,7 +82,7 @@ def getNormsAndDistanceInfoFromBaseImage(
     outliers_arr = np.array(outliers_indices)
     print(outliers_arr.shape)
 
-    return_dict["outliers_df"] = pd.DataFrame(
+    return_dict["outliers"] = pd.DataFrame(
             outliers_arr.reshape(outliers_arr.shape[-3], outliers_arr.shape[-1]*outliers_arr.shape[-2]), 
             columns=["outliers" + i for i in return_dict["norms"].columns]
     )
@@ -108,3 +108,49 @@ def visualizeOutlierInfo(distance_dict):
         
         plt.legend(loc='upper left');
         plt.show()
+        
+ # =======
+
+
+def getNormsAndDistanceInfoFromBaseImage_1(
+        base_image, 
+        array_images, 
+        distances=np.append(np.arange(1, 4), np.inf), 
+        outlier_percentage=0.05
+    ):
+    return_dict = {}
+    
+    distances_norms = []
+    Np, height, width = array_images.shape
+    for i in distances:
+        distance = np.linalg.norm(np.subtract(base_image, array_images).reshape(Np, height*width), ord=i, axis=1)
+        distances_norms.append(distance)
+    return_dict["norms"] = pd.DataFrame(np.array(distances_norms).T, columns=["Norm" + str(i) for i in distances])
+    outliers_indices = []
+    outliers_col = []
+
+    for column in return_dict["norms"].columns:
+        outliers_col = np.where(
+            return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage),'r','k')
+        return_dict["outliers_col"+column]=outliers_col
+        
+        outliers = np.argwhere(
+                return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage)
+        )
+        # save as dataframe with different size, not all distances detect the same number of outliers
+        return_dict["outliers"+column]=outliers 
+    
+    return return_dict
+
+
+def visualizeOutlierInfo_1(distance_dict):
+    for column in distance_dict['norms'].columns:
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111)
+        
+        ax1.scatter(np.arange(distance_dict['norms'][column].shape[0]), distance_dict['norms'][column],
+                 c=distance_dict["outliers_col"+column], s=20, linewidth=0,marker="o",label=column + ' Outliers')
+        
+        plt.legend(loc='upper left');
+        plt.show()
+
