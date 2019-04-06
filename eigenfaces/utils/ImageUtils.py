@@ -3,6 +3,7 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from collections import Counter
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -13,6 +14,8 @@ DATASET_FACES95 = DATASET_ROOT + "/faces95"
 DATASET_FACES96 = DATASET_ROOT + "/faces96"
 DATASET_GRIMACE = DATASET_ROOT + "/grimace"
 DATASET_LANDSCAPE = DATASET_ROOT + "/naturalLandscapes"
+
+DISTANCES = np.append(np.arange(1, 4), np.array([np.inf, 2.5, np.sqrt(2)/2]))
 
 def readFaces94MaleFaces(gray=False):
     return readImagesFromDataset(DATASET_FACES94_MALE, gray)
@@ -60,33 +63,34 @@ def readLandsCapeImage(gray=False):
 ## ======= Calculate distance from image
 def getNormsAndDistanceInfoFromBaseImage(
         base_image, 
-        array_images, 
-        distances=np.append(np.arange(1, 4), np.inf), 
+        array_images,
+        labels=np.array([]),
         outlier_percentage=0.05
     ):
     return_dict = {}
-    
+    outliers_dict = {}
     distances_norms = []
     Np, height, width = array_images.shape
-    for i in distances:
+    for i in DISTANCES:
         distance = np.linalg.norm(np.subtract(base_image, array_images).reshape(Np, height*width), ord=i, axis=1)
         distances_norms.append(distance)
-    return_dict["norms"] = pd.DataFrame(np.array(distances_norms).T, columns=["Norm" + str(i) for i in distances])
-    outliers_indices = []
+    return_dict["norms"] = pd.DataFrame(np.array(distances_norms).T, columns=["Norm" + str(np.around(i, decimals=2)) for i in DISTANCES])
 
     for column in return_dict["norms"].columns:
         outliers = np.argwhere(
                 return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage)
         )
-        outliers_indices.append(outliers)
-    outliers_arr = np.array(outliers_indices)
-    print(outliers_arr.shape)
-
-    return_dict["outliers"] = pd.DataFrame(
-            outliers_arr.reshape(outliers_arr.shape[-3], outliers_arr.shape[-1]*outliers_arr.shape[-2]), 
-            columns=["outliers" + i for i in return_dict["norms"].columns]
-    )
-    
+        outliers_dict[column] = {'indices': np.squeeze(outliers)}
+        
+    if labels.size != 0:
+        false_observations_dict = {}
+        for column in return_dict["norms"].columns:
+            counter_false = Counter(labels[outliers_dict[column]["indices"]])
+            false_observations_dict[column] = {"true_negatives": counter_false[0.0], "false_negatives": counter_false[1.0]}
+        
+        return_dict["falsitude_metrics"] = false_observations_dict
+            
+    return_dict["outliers"] = outliers_dict
     return return_dict
 
 def visualizeOutlierInfo(distance_dict):
@@ -101,8 +105,10 @@ def visualizeOutlierInfo(distance_dict):
         )
         
         ax1.scatter(
-            distance_dict["outliers_df"]["outliers" + column],
-            distance_dict["norms"][column][distance_dict["outliers_df"]["outliers" + column]],
+            distance_dict["outliers"][column]["indices"],
+            distance_dict["norms"][column][
+                    distance_dict["outliers"][column]["indices"]
+                    ],
             s=10, c='r', marker="o", label=column + ' Outliers'
         )
         
@@ -110,47 +116,3 @@ def visualizeOutlierInfo(distance_dict):
         plt.show()
         
  # =======
-
-
-def getNormsAndDistanceInfoFromBaseImage_1(
-        base_image, 
-        array_images, 
-        distances=np.append(np.arange(1, 4), np.inf), 
-        outlier_percentage=0.05
-    ):
-    return_dict = {}
-    
-    distances_norms = []
-    Np, height, width = array_images.shape
-    for i in distances:
-        distance = np.linalg.norm(np.subtract(base_image, array_images).reshape(Np, height*width), ord=i, axis=1)
-        distances_norms.append(distance)
-    return_dict["norms"] = pd.DataFrame(np.array(distances_norms).T, columns=["Norm" + str(i) for i in distances])
-    outliers_indices = []
-    outliers_col = []
-
-    for column in return_dict["norms"].columns:
-        outliers_col = np.where(
-            return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage),'r','k')
-        return_dict["outliers_col"+column]=outliers_col
-        
-        outliers = np.argwhere(
-                return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage)
-        )
-        # save as dataframe with different size, not all distances detect the same number of outliers
-        return_dict["outliers"+column]=outliers 
-    
-    return return_dict
-
-
-def visualizeOutlierInfo_1(distance_dict):
-    for column in distance_dict['norms'].columns:
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111)
-        
-        ax1.scatter(np.arange(distance_dict['norms'][column].shape[0]), distance_dict['norms'][column],
-                 c=distance_dict["outliers_col"+column], s=20, linewidth=0,marker="o",label=column + ' Outliers')
-        
-        plt.legend(loc='upper left');
-        plt.show()
-
