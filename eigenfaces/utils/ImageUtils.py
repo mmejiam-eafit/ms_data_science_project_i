@@ -69,6 +69,7 @@ def getNormsAndDistanceInfoFromBaseImage(
     ):
     return_dict = {}
     outliers_dict = {}
+    outliers_dict_iqr = {}
     distances_norms = []
     Np, height, width = array_images.shape
     for i in DISTANCES:
@@ -81,6 +82,14 @@ def getNormsAndDistanceInfoFromBaseImage(
                 return_dict["norms"][column] >= return_dict["norms"][column].quantile(1 - outlier_percentage)
         )
         outliers_dict[column] = {'indices': np.squeeze(outliers)}
+
+        Li=return_dict["norms"][column].quantile(0.25)-1.5*(return_dict["norms"][column].quantile(0.75)-return_dict["norms"][column].quantile(0.25))
+        Ls=return_dict["norms"][column].quantile(0.75)+1.5*(return_dict["norms"][column].quantile(0.75)-return_dict["norms"][column].quantile(0.25))
+        outliersiqr = np.argwhere(
+                (return_dict["norms"][column] < Li) | (return_dict["norms"][column] > Ls)
+        )
+        outliers_dict_iqr[column] = {'indices': np.squeeze(outliersiqr)}
+        
         
     if labels.size != 0:
         false_observations_dict = {}
@@ -91,6 +100,17 @@ def getNormsAndDistanceInfoFromBaseImage(
         return_dict["falsitude_metrics"] = false_observations_dict
             
     return_dict["outliers"] = outliers_dict
+    
+    if labels.size != 0:
+        false_observations_dict_iqr = {}
+        for column in return_dict["norms"].columns:
+            counter_false = Counter(labels[outliers_dict_iqr[column]["indices"]])
+            false_observations_dict_iqr[column] = {"true_negatives_iqr": counter_false[0.0], "false_negatives_iqr": counter_false[1.0]}
+        
+        return_dict["falsitude_metrics_iqr"] = false_observations_dict_iqr
+            
+    return_dict["outliersiqr"] = outliers_dict_iqr
+    
     return return_dict
 
 def visualizeOutlierInfo(distance_dict):
@@ -115,4 +135,30 @@ def visualizeOutlierInfo(distance_dict):
         plt.legend(loc='upper left');
         plt.show()
         
+def visualizeOutlierInfo2(distance_dict,dataset):
+    for column in distance_dict['norms'].columns:
+        plt.figure(figsize=(15,4))
+        plt.subplot(1,2,1)
+        plt.title('HISTOGRAMA '+str(column))
+        plt.grid(True)
+        plt.hist(distance_dict['norms'][column]);
+        plt.subplot(1,2,2)
+        plt.title('BOXPLOT '+str(column))
+        plt.boxplot(distance_dict['norms'][column], 0, 'rs', 0);
+        plt.show()
+
+        Distance=distance_dict["norms"][column][distance_dict["outliersiqr"][column]['indices']]
+        Ind=distance_dict["outliersiqr"][column]['indices']
+        Distance, Ind =zip(*sorted(zip(Distance, Ind)))
+        fig = plt.figure(figsize=(14,16))
+        ax1 = fig.add_subplot(1,3,1)
+        plt.title("Máximo "+str(column))
+        ax1.imshow(dataset[Ind[-1]], plt.cm.gray)
+        ax2 = fig.add_subplot(1,3,2)
+        plt.title("Penúltimo "+str(column))
+        ax2.imshow(dataset[Ind[-2]], plt.cm.gray)
+        ax3 = fig.add_subplot(1,3,3)
+        plt.title("Antepenúltimo "+str(column))
+        ax3.imshow(dataset[Ind[-3]], plt.cm.gray)
+
  # =======
