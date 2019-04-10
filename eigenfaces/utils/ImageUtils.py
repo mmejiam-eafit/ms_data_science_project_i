@@ -139,10 +139,13 @@ def visualizeOutlierInfo(distance_dict,labels):
         plt.legend(loc='upper left');
 
         plt.subplot(1,2,2)
+        plt.title("Heatmap "+str(column))
         data = {'y_Predicted': labels2,'y_Actual': labels}
         df = pd.DataFrame(data, columns=['y_Actual','y_Predicted'])
         confusion_matrix = pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=['Actual'], colnames=['Predicted'])
-        sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
+        ax=sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
+        ax.invert_yaxis()
+        ax.invert_xaxis()
         
 def visualizeOutlierInfo2(distance_dict,dataset,labels):
     
@@ -152,11 +155,11 @@ def visualizeOutlierInfo2(distance_dict,dataset,labels):
         
         plt.figure(figsize=(15,4))
         plt.subplot(1,2,1)
-        plt.title('HISTOGRAMA '+str(column))
+        plt.title('Histogram '+str(column))
         plt.grid(True)
         plt.hist(distance_dict['norms'][column]);
         plt.subplot(1,2,2)
-        plt.title('BOXPLOT '+str(column))
+        plt.title('Boxplot '+str(column))
         plt.boxplot(distance_dict['norms'][column], 0, 'rs', 0);
         plt.show()
 
@@ -165,19 +168,22 @@ def visualizeOutlierInfo2(distance_dict,dataset,labels):
         Distance, Ind =zip(*sorted(zip(Distance, Ind)))
         fig = plt.figure(figsize=(14,16))
         ax1 = fig.add_subplot(1,3,1)
-        plt.title("Máximo "+str(column))
+        plt.title("last "+str(column))
         ax1.imshow(dataset[Ind[-1]], plt.cm.gray)
         ax2 = fig.add_subplot(1,3,2)
-        plt.title("Penúltimo "+str(column))
+        plt.title("second-to-last "+str(column))
         ax2.imshow(dataset[Ind[-2]], plt.cm.gray)
         ax3 = fig.add_subplot(1,3,3)
-        plt.title("Antepenúltimo "+str(column))
+        plt.title("third-to-last "+str(column))
         ax3.imshow(dataset[Ind[-3]], plt.cm.gray)
 
         plt.figure()
+        plt.title("Heatmap "+str(column))
         data = {'y_Predicted': labels2,'y_Actual': labels}
         df = pd.DataFrame(data, columns=['y_Actual','y_Predicted'])
         confusion_matrix = pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=['Actual'], colnames=['Predicted'])
-        sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
+        ax=sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
+        ax.invert_yaxis()
+        ax.invert_xaxis()
 
  # =======
