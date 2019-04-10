@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
+import seaborn as sns
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -113,10 +114,13 @@ def getNormsAndDistanceInfoFromBaseImage(
     
     return return_dict
 
-def visualizeOutlierInfo(distance_dict):
+def visualizeOutlierInfo(distance_dict,labels):
     for column in distance_dict['norms'].columns:
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111)
+        labels2=np.ones(labels.shape[0])
+        labels2[distance_dict["outliers"][column]['indices']]=0
+        
+        fig = plt.figure(figsize=(15,4))
+        ax1 = fig.add_subplot(1,2,1)
         
         ax1.scatter(
             np.arange(distance_dict['norms'][column].shape[0]),
@@ -133,10 +137,19 @@ def visualizeOutlierInfo(distance_dict):
         )
         
         plt.legend(loc='upper left');
-        plt.show()
+
+        plt.subplot(1,2,2)
+        data = {'y_Predicted': labels2,'y_Actual': labels}
+        df = pd.DataFrame(data, columns=['y_Actual','y_Predicted'])
+        confusion_matrix = pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=['Actual'], colnames=['Predicted'])
+        sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
         
-def visualizeOutlierInfo2(distance_dict,dataset):
+def visualizeOutlierInfo2(distance_dict,dataset,labels):
+    
     for column in distance_dict['norms'].columns:
+        labels2=np.ones(labels.shape[0])
+        labels2[distance_dict["outliersiqr"][column]['indices']]=0
+        
         plt.figure(figsize=(15,4))
         plt.subplot(1,2,1)
         plt.title('HISTOGRAMA '+str(column))
@@ -160,5 +173,11 @@ def visualizeOutlierInfo2(distance_dict,dataset):
         ax3 = fig.add_subplot(1,3,3)
         plt.title("Antepenúltimo "+str(column))
         ax3.imshow(dataset[Ind[-3]], plt.cm.gray)
+
+        plt.figure()
+        data = {'y_Predicted': labels2,'y_Actual': labels}
+        df = pd.DataFrame(data, columns=['y_Actual','y_Predicted'])
+        confusion_matrix = pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=['Actual'], colnames=['Predicted'])
+        sns.heatmap(confusion_matrix, annot=True,cmap='Blues', fmt='.0f');
 
  # =======
