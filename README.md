@@ -1,4 +1,4 @@
-# Maestria Ciencia de los Datos y la Infromamación: Integrator Proyect 2019-01
+# M.Sc in Data Science and Analytics: Project I 2019-01
 
 
 ## Authors
@@ -11,7 +11,7 @@
 
 The aim of the project is to implement methodologies or if possible to propose improvements to identify human faces. To perform this task, Eigenfaces method will be used together with a previous preparation of the images.
 
-Initially, outlier images are identified within a face and landscape dataset, using metrics such as Manhattan, Euclidean, Chebyshev and Minkowsky distances (p = 5/2 and √2/2). Then the obtained results are compared to determine which one of the metrics has better performance in the identification of outliers images.
+Initially, outlier images are identified for face and landscape datasets, using metrics such as Manhattan, Euclidean, Chebyshev and Minkowsky distances (p = 5/2 and √2/2). Then the obtained results are compared to determine which one of the metrics has better performance in the identification of outliers images.
 
 
 ## How to replicate the work
@@ -25,4 +25,4 @@ The project is being written in python 3.7, it is recommended to use a version o
 
 ## Versioning
 
-We use python 3.7 
+We use Python 3.7 
