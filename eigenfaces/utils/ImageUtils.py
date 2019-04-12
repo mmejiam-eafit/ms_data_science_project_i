@@ -66,7 +66,7 @@ def getNormsAndDistanceInfoFromBaseImage(
         base_image, 
         array_images,
         labels=np.array([]),
-        outlier_percentage=0.05
+        outlier_percentage=0.10
     ):
     return_dict = {}
     outliers_dict = {}
