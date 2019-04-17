@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
 import seaborn as sns
+import scipy
+from sklearn.preprocessing import StandardScaler
+import scipy.stats
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -187,12 +190,7 @@ def visualizeOutlierInfo2(distance_dict,dataset,labels):
         ax.invert_xaxis()
 
  # ============
-
 #==== Check parametric distribution of distances
-import scipy
-from sklearn.preprocessing import StandardScaler
-import scipy.stats
-
 def check_parametricDistribu_distances(y):
     x = np.arange(len(y))
     size = len(y)
