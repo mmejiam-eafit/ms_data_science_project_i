@@ -5,6 +5,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
 import seaborn as sns
+import scipy
+from sklearn.preprocessing import StandardScaler
+import scipy.stats
+from sklearn import preprocessing
+from scipy import stats
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import KFold
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -186,4 +193,246 @@ def visualizeOutlierInfo2(distance_dict,dataset,labels):
         ax.invert_yaxis()
         ax.invert_xaxis()
 
- # =======
+ # ============
+#==== Check parametric distribution of distances
+def check_parametricDistribu_distances(y):
+    x = np.arange(len(y))
+    size = len(y)
+    y_df = pd.DataFrame(y)
+    sc=StandardScaler() 
+    sc.fit(y_df)
+    y_std =sc.transform(y_df)
+    y_std = y_std.flatten()
+    
+    # Set up list of candidate distributions to use
+    # See https://docs.scipy.org/doc/scipy/reference/stats.html for more
+    dist_names = ['beta',
+              'expon',
+              'gamma',
+              'lognorm',
+              'norm',
+              'pearson3',
+              'weibull_min', 
+              'weibull_max',
+             'chi2']
+    
+    # Set up empty lists to stroe results
+    chi_square = []
+    p_values = []
+    
+    # Set up 50 bins for chi-square test
+    # Observed data will be approximately evenly distrubuted aross all bins
+    percentile_bins = np.linspace(0,100,51)
+    percentile_cutoffs = np.percentile(y_std, percentile_bins)
+    observed_frequency, bins = (np.histogram(y_std, bins=percentile_cutoffs))
+    cum_observed_frequency = np.cumsum(observed_frequency)
+    
+    # Loop through candidate distributions
+    
+    for distribution in dist_names:
+        # Set up distribution and get fitted distribution parameters
+        dist = getattr(scipy.stats, distribution)
+        param = dist.fit(y_std)
+        
+        # Obtain the KS test P statistic, round it to 5 decimal places
+        p = scipy.stats.kstest(y_std, distribution, args=param)[1]
+        p = np.around(p, 5)
+        p_values.append(p)
+        
+        # Get expected counts in percentile bins
+        # This is based on a 'cumulative distrubution function' (cdf)
+        
+        cdf_fitted = dist.cdf(percentile_cutoffs, *param[:-2], loc=param[-2],scale=param[-1])
+        expected_frequency = []
+        
+        for bin in range(len(percentile_bins)-1):
+            expected_cdf_area = cdf_fitted[bin+1] - cdf_fitted[bin]
+            expected_frequency.append(expected_cdf_area)
+            
+       # calculate chi-squared
+        expected_frequency = np.array(expected_frequency) * size
+        cum_expected_frequency = np.cumsum(expected_frequency)
+        ss = sum (((cum_expected_frequency - cum_observed_frequency) ** 2) / cum_observed_frequency)
+        chi_square.append(ss)
+        
+    # Collate results and sort by goodness of fit (best at top)
+
+    results = pd.DataFrame()
+    results['Distribution'] = dist_names
+    results['chi_square'] = chi_square
+    results['p_value'] = p_values
+    results.sort_values(['chi_square'], inplace=True)
+    
+    # Report results
+
+    print ('\nDistributions sorted by goodness of fit:')
+    print ('----------------------------------------')
+    print (results)
+
+def facespace(percentage_variance,dataset,data,mean_all,u,dataset_N,height,width,start,step,stop,low):
+
+    representation_percentage = np.arange(start = start, stop = stop, step = step)
+    sumvar=[]
+    numvar=[]
+
+    for i in range(len(representation_percentage)):
+        sum_var_plot = 0
+        num_var_plot = 0
+        for j in np.arange(percentage_variance.shape[0]):
+            if sum_var_plot >= representation_percentage[i]:
+                num_var_plot = j
+                break;
+    
+            sum_var_plot += percentage_variance[j]
+        
+        sumvar=np.append(sumvar,sum_var_plot*100)
+        numvar=np.append(numvar,num_var_plot)
+
+    Eigenvectors_plot=np.dot(data.T,u[:,0:int(numvar[3])])
+    NormEigenvectors_plot = preprocessing.normalize(Eigenvectors_plot,axis=0, norm='l2')
+
+    image_index = np.random.randint(low, high=dataset_N, size=1)[0]
+    original_image = dataset[image_index]
+
+
+    fig = plt.figure(figsize=(20,45))
+    ax1 = fig.add_subplot(1,5,1)
+    plt.title("Original Image")
+    ax1.imshow(original_image, plt.cm.gray)
+
+    for i in range(4):
+
+        example_image = np.dot(np.dot(data[image_index],NormEigenvectors_plot[:,0:int(numvar[i])]),NormEigenvectors_plot[:,0:int(numvar[i])].T)+mean_all.reshape(height*width)
+        ax2 = fig.add_subplot(1,5,i+2)
+        plt.title("Reconstructed PCAs "+str(int(numvar[i]))+' - '+str(int(sumvar[i]))+'%')
+        ax2.imshow(example_image.reshape(height,width), plt.cm.gray)
+
+def specificimage(data,dataset,NormEigenvectorsA,mean_all,N_image,dataset_N,height,width):
+
+    Image=data[N_image]
+    w=np.dot(Image,NormEigenvectorsA)#weigth w of each Eigenface in generate subspace
+    Reconstructed=np.dot(w,NormEigenvectorsA.T)+mean_all.reshape(height*width)#es mas claro w*vectores propios transpuestos
+    example_image = Reconstructed
+    original_image = dataset[N_image]
+    fig = plt.figure(figsize=(8,10))
+    ax1 = fig.add_subplot(1,2,1)
+    plt.title("Original Image")
+    ax1.imshow(original_image, plt.cm.gray)
+    ax2 = fig.add_subplot(1,2,2)
+    plt.title("Reconstructed Image")
+    ax2.imshow(example_image.reshape(height,width), plt.cm.gray)
+    
+def randomimage(data,dataset,NormEigenvectorsA,mean_all,dataset_N,height,width):
+
+    image_index = np.random.randint(0, high=dataset_N, size=1)[0]
+    example_image = np.dot(np.dot(data[image_index],NormEigenvectorsA),NormEigenvectorsA.T)+mean_all.reshape(height*width)
+    original_image = dataset[image_index]
+    fig = plt.figure(figsize=(8,10))
+    ax1 = fig.add_subplot(1,2,1)
+    plt.title("Original Image")
+    ax1.imshow(original_image, plt.cm.gray)
+    ax2 = fig.add_subplot(1,2,2)
+    plt.title("Reconstructed Image")
+    ax2.imshow(example_image.reshape(height,width), plt.cm.gray)
+
+def histbox(edistance):    
+    plt.figure(figsize=(15,4))
+    plt.subplot(1,2,1)
+    plt.title('Histogram')
+    plt.grid(True)
+    plt.hist(edistance);
+    plt.subplot(1,2,2)
+    plt.title('Boxplot')
+    plt.boxplot(edistance, 0, 'rs', 0);
+    plt.show()
+    
+def outlierseigenfaces(edistance,threshold):
+    
+    z = np.abs(stats.zscore(edistance))
+    outliersindex=np.where(z > threshold)
+    outliers=edistance[outliersindex]
+    zsort=z[outliersindex]
+    indexsortout=np.argsort(outliers)
+    outliers=outliers[indexsortout]
+    zsort=zsort[indexsortout]
+    indexsort=np.argsort(edistance) 
+    edistancesort=edistance[indexsort] 
+    return threshold, outliers, zsort, indexsort, z
+
+def landimages(landscapes,height,width,mean_all,NormEigenvectorsA,ordn,outliers):
+
+    N_land= np.random.randint(0, high=landscapes.shape[0], size=1)[0]
+    landimage=landscapes[N_land].reshape(height*width)-mean_all.reshape(height*width)#seleccionar imagen individual
+    wland=np.dot(landimage,NormEigenvectorsA)#pesos w de cada Eigenface en subespacio generado
+    Reconstland=np.dot(wland,NormEigenvectorsA.T)+mean_all.reshape(height*width)#es mas claro w*vectores propios transpuestos
+    fig = plt.figure(figsize=(8,10))
+    ax1 = fig.add_subplot(1,2,1)
+    plt.title("Land image")
+    ax1.imshow(landscapes[N_land], plt.cm.gray)
+    ax2 = fig.add_subplot(1,2,2)
+    plt.title("Reconstructed land Image")
+    ax2.imshow(Reconstland.reshape(height, width), plt.cm.gray)
+    edistanceland = np.linalg.norm(np.subtract(landscapes[N_land].reshape(height*width), Reconstland), ord=ordn, axis=0)
+
+    if edistanceland>outliers[0]:
+        print('No pertenece al dataset')
+    else:
+        print('error')
+    print(edistanceland)
+
+def kfold(y_true,landscapes,dataset,height,width,ordn):    
+    
+    accuracy=[]
+    tncv=[]
+    fpcv=[]
+    fncv=[]
+    tpcv=[]
+
+    kf = KFold(n_splits=5,random_state=42,shuffle=True)
+    kf.get_n_splits(dataset)
+    print(kf)  
+    KFold(n_splits=5, random_state=42, shuffle=True)
+    for train_index, test_index in kf.split(dataset):
+        X_train, X_test = dataset[train_index], dataset[test_index]
+        y_train, y_test = y_true[train_index], y_true[test_index] 
+        datasetcv_N=X_train.shape[0]
+        mean_all_cv = np.mean(X_train.reshape(datasetcv_N, height*width), axis=0).reshape(height, width)
+        datacv=X_train.reshape(datasetcv_N, height*width) - np.mean(X_train.reshape(datasetcv_N, height*width), axis=0)
+        datasetmeancv=(1/(datasetcv_N-1))*(np.dot(datacv,datacv.T))
+        u,s,vh = np.linalg.svd(datasetmeancv)
+        representation_percentage = 0.80
+        sum_eig = np.sum(s)
+        percentage_variance = np.divide(s, sum_eig)
+        sum_var = 0
+        num_var = 0
+        for i in np.arange(percentage_variance.shape[0]):
+            if sum_var >= representation_percentage:
+                num_var = i
+                break;
+    
+            sum_var += percentage_variance[i]
+        num_var_select=num_var    
+        Eigenvectors_cv=np.dot(datacv.T,u[:,0:num_var_select])
+        NormEigenvectors_cv = preprocessing.normalize(Eigenvectors_cv,axis=0, norm='l2')
+        dataReconstructedcv=np.dot(np.dot(datacv,NormEigenvectors_cv),NormEigenvectors_cv.T)+mean_all_cv.reshape(height*width)
+        edistancecv = np.linalg.norm(np.subtract(dataReconstructedcv, X_train.reshape(datasetcv_N, height*width)), ord=ordn, axis=1)
+        maxcv=np.max(edistancecv)
+        X_test = np.vstack((X_test,landscapes))
+        y_test=np.append(y_test,np.zeros(landscapes.shape[0]))
+        X_test_mean=X_test.reshape(X_test.shape[0],height*width)-mean_all_cv.reshape(height*width)
+        dataReconstructedX_test=np.dot(np.dot(X_test_mean,NormEigenvectors_cv),NormEigenvectors_cv.T)+mean_all_cv.reshape(height*width)
+        edistanceX_test = np.linalg.norm(np.subtract(dataReconstructedX_test, X_test.reshape(X_test.shape[0], height*width)), ord=ordn, axis=1)
+        y_pred=(edistanceX_test<=maxcv)*1
+        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+        accuracy=np.append(accuracy,(tp+tn)/(tp+tn+fp+fn))
+        tncv=np.append(tncv,tn)
+        fpcv=np.append(fpcv,fp)
+        fncv=np.append(fncv,fn)
+        tpcv=np.append(tpcv,tp)
+
+    print('test: ',X_test.shape[0])
+    print('faces: ',test_index.shape[0])
+    print('landscapes: ',landscapes.shape[0])
+
+    return accuracy, tncv, fpcv, fncv, tpcv
+    
