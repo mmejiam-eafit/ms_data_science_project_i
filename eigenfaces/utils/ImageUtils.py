@@ -12,6 +12,9 @@ from sklearn import preprocessing
 from scipy import stats
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold
+from sklearn.cluster import KMeans
+from sklearn.model_selection import train_test_split
+from mpl_toolkits import mplot3d
 
 DATASET_ROOT = "../datasets"
 DATASET_FACES94 = DATASET_ROOT + "/faces94"
@@ -435,4 +438,62 @@ def kfold(y_true,landscapes,dataset,height,width,ordn):
     print('landscapes: ',landscapes.shape[0])
 
     return accuracy, tncv, fpcv, fncv, tpcv
+
+def kmeansplit(datasetfull,y_label,datasetfull_N,height,width,representation_percentage,k):
+
+    # Create training and test sets
+    indices = np.arange(datasetfull_N)
+    X_train, X_test, y_train, y_test, idx1, idx2 = train_test_split(datasetfull,y_label,indices,test_size = 0.2, random_state=42)
+    datasetcv_N=X_train.shape[0]
+    datafull=X_train.reshape(datasetcv_N, height*width) - np.mean(X_train.reshape(datasetcv_N, height*width), axis=0)
+    datasetmeanfull=(1/datasetcv_N-1)*(np.dot(datafull,datafull.T))
+    u,s,vh = np.linalg.svd(datasetmeanfull)
+    sum_eig = np.sum(s)
+    percentage_variance = np.divide(s, sum_eig)
+    sum_var = 0
+    num_var = 0
+    for i in np.arange(percentage_variance.shape[0]):
+        if sum_var >= representation_percentage:
+            num_var = i
+            break;   
+        sum_var += percentage_variance[i]    
+    num_var_select=num_var 
+    EigenvectorsAk=np.dot(datafull.T,u[:,0:num_var_select])
+    NormEigenvectorsAk = preprocessing.normalize(EigenvectorsAk,axis=0, norm='l2')
+    omegaw=np.dot(datafull,NormEigenvectorsAk)
+    kmeansk = KMeans(n_clusters=k, random_state=42).fit(omegaw)
+    datasetest_N=X_test.shape[0]
+    datafulltest=X_test.reshape(datasetest_N, height*width) - np.mean(X_train.reshape(datasetcv_N, height*width), axis=0)
+    omegawtest=np.dot(datafulltest,NormEigenvectorsAk)
+    y_predk=kmeansk.predict(omegawtest)
+    Y=kmeansk.transform(omegawtest)
+    
+    cols = 3
+    rows = 1
+    plt.figure(figsize=(12,8))
+    for i in np.arange(rows * cols):
+        plt.subplot(rows, cols, i + 1)
+        plt.title("Class "+str(i+1))
+        plt.imshow((np.dot(kmeansk.cluster_centers_[i],NormEigenvectorsAk.T)+np.mean(X_train.reshape(datasetcv_N, height*width), axis=0)).reshape(height, width), plt.cm.gray)
+    
+    
+    plt.figure(figsize=(10,8))
+    ax = plt.axes(projection='3d')
+    ax.scatter(Y[np.where(y_predk==0),0],Y[np.where(y_predk==0),1] ,Y[np.where(y_predk==0),2], cmap='viridis', linewidth=1);
+    ax.scatter(Y[np.where(y_predk==1),0],Y[np.where(y_predk==1),1] ,Y[np.where(y_predk==1),2], cmap='viridis', linewidth=1);
+    ax.scatter(Y[np.where(y_predk==2),0],Y[np.where(y_predk==2),1] ,Y[np.where(y_predk==2),2], cmap='viridis', linewidth=1);
+    plt.gca().legend(('class 1','class 2','class 3'))
+    
+    
+    plt.figure(figsize=(7,5))
+    plt.scatter(Y[np.where(y_predk==0),0], Y[np.where(y_predk==0),1])
+    plt.scatter(Y[np.where(y_predk==1),0], Y[np.where(y_predk==1),1])
+    plt.scatter(Y[np.where(y_predk==2),0], Y[np.where(y_predk==2),1])
+    plt.gca().legend(('class 1','class 2','class 3'))
+    plt.xlabel('x')
+    plt.ylabel('Y')
+    plt.title('centroid transform')
+    plt.show()
+    
+    return kmeansk, NormEigenvectorsAk, X_train, X_test, y_predk
     
