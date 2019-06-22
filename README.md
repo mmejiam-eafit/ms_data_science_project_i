@@ -5,7 +5,6 @@
 
 * **Juan Camilo Ceballos Arias**
 * **Miguel Angel Mejia Muñoz**
-* **Santiago Aristizabal Toro**
 * **Juan Esteban Torres Marulanda**
 * **Danny Styvens Cardona Pineda**
 
